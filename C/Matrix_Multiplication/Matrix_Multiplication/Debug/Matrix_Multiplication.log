@@ -1,0 +1,3 @@
+﻿  main.c
+  C:\Users\kimsu\source\repos\Matrix_Multiplication\Matrix_Multiplication\main.c(45) : warning C4716: 'mutrix': 값을 반환해야 합니다.
+  Matrix_Multiplication.vcxproj -> C:\Users\kimsu\source\repos\Matrix_Multiplication\Debug\Matrix_Multiplication.exe
