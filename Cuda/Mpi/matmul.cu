@@ -2,7 +2,8 @@
 #include "device_launch_parameters.h"
 #include <stdio.h>
 #include "mpi.h"
-
+#include <stdlib.h> //rand사용을 위해 추가
+#include <time.h> //srand사용을 위해 추가
 // 행렬 곱셈 커널 함수를 콜할 호스트 함수
 cudaError_t multiWithCuda(float* c, float* a, float* b, unsigned int size);
 
@@ -20,8 +21,8 @@ __global__ void multiKernel(float* c, float* a, float* b, unsigned int size)
 int main(int argc, char **argv)
 {
     int rank,size;
-    const int arraySize = 32;
-
+    const int arraySize = 5;
+    srand(time(NULL));
     /*MPI환경 초기화*/
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -36,10 +37,12 @@ int main(int argc, char **argv)
     //0부터 1024까지의 값이 들어감
     for(int i=0; i<arraySize*arraySize; i++)
     {
-       	a[i]=1;
-	b[i]=1;
+       	a[i]=2;
+	b[i]=2;
 	//a[i] = static_cast<float>(i);
         //b[i] = static_cast<float>(i);
+	//a[i] = rand() % 1024;
+	//b[i] = rand() % 1024;
     }
 
 
@@ -59,19 +62,17 @@ int main(int argc, char **argv)
 	{
 		if(rank == 0)
 		{
-//        		if(i % arraySize == 0)
-//			{
-				//MPI_Send(address, count, datatype, destination, tag, comm)
-                        	MPI_Send(&c[i], 0, MPI_FLOAT,1,0,MPI_COMM_WORLD);
-	   	   		printf("11111c[%d] = %8.1f\n",i,c[i]);
-//			}
-			
+			//MPI_Send(address, count, datatype, destination, tag, comm)
+                       	MPI_Send(&c[i], 0, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
+   	   		printf("ping c[%d] = %8.1f\n",i,c[i]);
+			MPI_Recv(&c[i], 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 		else
 		{
                          //MPI_Recv(address, maxcount, datatype, source, tag, comm, status)
                          MPI_Recv(&c[i], 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			 printf("222c[%d] = %8.1f \n",i,c[i]);
+			 printf("c[%d] = %8.1f \n",i,c[i]);
+			 MPI_Send(&c[i], 0, MPI_FLOAT,1,0,MPI_COMM_WORLD);
 		}
     		// 모든 작업이 완료되었으므로
     		// device 를 reset 한다.
@@ -82,7 +83,7 @@ int main(int argc, char **argv)
 			//MPI_Finalize();	
        		 return 1;
     		} 
-//    		MPI_Finalize();
+		//MPI_Finalize();
 	}
 	return 0;
 }
