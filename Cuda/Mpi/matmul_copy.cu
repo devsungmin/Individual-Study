@@ -33,58 +33,54 @@ int main(int argc, char **argv)
     float b[arraySize*arraySize] = {0}; //행렬 크기는 1024
     float c[arraySize*arraySize] = {0}; //행렬 크기는 1024
 
-    //0부터 1024까지의 값이 들어감
+    // 알맞은 값으로 초기화 한다. -> 0부터 1024까지의 값이 들어감
     for(int i=0; i<arraySize*arraySize; i++)
     {
-       	a[i]=1;
-	b[i]=1;
-	//a[i] = static_cast<float>(i);
-        //b[i] = static_cast<float>(i);
+       	a[i] = static_cast<float>(i);
+        b[i] = static_cast<float>(i);
     }
-
 
     // 작업할 함수를 콜한다.
     cudaError_t cudaStatus = multiWithCuda(c, a, b, arraySize);
     if(cudaStatus != cudaSuccess)
     {
         fprintf(stderr, "multiWithCuda failed!");
-//	MPI_Finalize(); //MPI환경 제거
+	MPI_Finalize(); //MPI환경 제거
 	return -1;
     }
 
+    if(rank == 0)
+    {
     	/*send, recv을 활용하여 결과값을 출력*/
     	//node0은 master이고 node1은 slave가 되는 경우를 생각
     	// 단 slave는 여러개가 되어 다대다 연결이 가능하게 해야함
     	for(int i=0; i<arraySize*arraySize; i++) 
 	{
-		if(rank == 0)
-		{
-//        		if(i % arraySize == 0)
-//			{
-				//MPI_Send(address, count, datatype, destination, tag, comm)
-                        	MPI_Send(&c[i], 0, MPI_FLOAT,1,0,MPI_COMM_WORLD);
-	   	   		printf("11111c[%d] = %8.1f\n",i,c[i]);
-//			}
-			
+        	if(i % arraySize == 0)
+		{ 
+			printf("\n");
+			//MPI_Recv(address, maxcount, datatype, source, tag, comm, status)
+			MPI_Recv(&c[i], 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			//MPI_Send(address, count, datatype, destination, tag, comm)
+                        MPI_Send(&c[i], 0, MPI_FLOAT,1,0,MPI_COMM_WORLD);
+
+	   	   	printf("%8.1f ",c[i]);
 		}
-		else
-		{
-                         //MPI_Recv(address, maxcount, datatype, source, tag, comm, status)
-                         MPI_Recv(&c[i], 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			 printf("222c[%d] = %8.1f \n",i,c[i]);
-		}
+    		printf("\n");
+
     		// 모든 작업이 완료되었으므로
     		// device 를 reset 한다.
     		cudaStatus = cudaDeviceReset();
     		if(cudaStatus != cudaSuccess)
-    		{ 
+    		{
        		 	fprintf(stderr,"cudaDeviceReset, failed!");
-			//MPI_Finalize();	
+			MPI_Finalize();	
        		 return 1;
-    		} 
-//    		MPI_Finalize();
+    		}
+    		MPI_Finalize();
+    		return 0;
 	}
-	return 0;
+      }
 }
 
 // 커널함수 호출하는 헬퍼 함수 multiWithCuda를 정의하자
@@ -139,14 +135,6 @@ cudaError_t multiWithCuda(float* c, float* a, float* b, unsigned int size)
         goto Error;
     }
 
-	cudaStatus = cudaMemcpy(dev_c, c, size*size*sizeof(float), cudaMemcpyHostToDevice);
-    if(cudaStatus != cudaSuccess)
-    {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-
     // 커널 함수를 실행한다.
     multiKernel<<<size, size>>>(dev_c, dev_a, dev_b, size);
 
@@ -182,6 +170,6 @@ Error:
     cudaFree(dev_b);
 
     //mpi 해제
-//    MPI_Finalize();
+    MPI_Finalize();
     return cudaStatus;
 }
