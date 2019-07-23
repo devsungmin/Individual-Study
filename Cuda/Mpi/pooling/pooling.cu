@@ -5,10 +5,13 @@
 #define ROW 32 //가로
 #define COL 32 //세로
 #define stride 2
+#define kernal_size 4
 
 MPI_Status status;
 
-__global__ void MaxPooling(float* dev_a,float* dev_b, float* dev_c, int arr_size,int start_range, int end_range) {
+int size, rank; //MPI환경을 위한 변수 설정
+
+__global__ void Average_Pooling(float* dev_a,float* dev_b, float* dev_c, int arr_size,int start_range, int end_range) {
 	int i = threadIdx.x;
 	int j = blockIdx.x;
 
@@ -30,7 +33,6 @@ int main(int argc, char **argv) {
 	float* dev_b[arr_size];
 	float* dev_c[arr_size];
 
-	int rank,size; //mpi사용을 위한 변수 설정
 	int offset=0;
 	int before_offset=0;
 	
@@ -64,9 +66,11 @@ int main(int argc, char **argv) {
 
 	if(rank == 0) {
 		//MPI_Recv
+		//MPI_Recv(buf_host, size, MPI_FLOAT, 1, tag, MPI_COMM_WORLD);
 	}
 	else if(rank > 0) {
 		//MPI_Send
+		//MPI_Send(buf_host, size, MPI_FLOAT, 0, tag, MPI_COMM_WORLD, &status);
 	}
 
 	free(a);
