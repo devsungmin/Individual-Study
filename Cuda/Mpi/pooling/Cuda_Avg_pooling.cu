@@ -27,7 +27,7 @@ void Init_input(float* input, int input_channel, int input_h_size, int input_w_s
 __global__ void Avg_pooling(int input_channel, int pooled_h, int pooled_w, int pool_h_stride, int pool_w_stride, int pool_h_size, int input_h_size, int pool_w_size, int input_w_size, int sum, float avg, float *input, float *gpu_output_data, int rank, int size)
 {
   int i = blockIdx.x;
-  int j = threadIdx.x;
+  int j = blockIdx.x;
 
   for (int c = 0; c < input_channel; c++)
    {
@@ -101,25 +101,29 @@ int main()
 
    float* input = new float[input_channel * input_h_size * input_w_size];
 
-   cudaMalloc((void**)&input, bytes);
 
    Init_input(input, input_channel, input_h_size, input_w_size);
    print(input, input_channel, input_h_size, input_w_size);
 
    float* gpu_output_data = new float[input_channel * input_h_size * input_w_size];
 
-   cudaMalloc((void**)&gpu_output_data, bytes);
+   cudaMalloc((void**)&input, input_channel*input_h_size*input_w_size);
+   cudaMalloc((void**)&gpu_output_data, input_channel*input_h_size*input_w_size);
+
+   cudaMemcpy(gpu_output_data,input,input_channel*input_h_size*input_w_size, cudaMemcpyHostToDevice);
+
+   dim3 grid(input_h_size, input_w_size);
 
    Avg_pooling<<< input_h_size, input_w_size  >>>(input_channel, pooled_h, pooled_w, pool_h_stride, pool_w_stride, pool_h_size, input_h_size, pool_w_size, input_w_size, sum, avg, input, gpu_output_data, rank, size);
    cudaDeviceSynchronize();
 
    print(gpu_output_data, input_channel, pooled_h, pooled_w);
    
-  //delete input;
-  //delete gpu_output_data;
-
    cudaFree(input);
    cudaFree(gpu_output_data);
+
+   delete input;
+   delete gpu_output_data;
 
    return 0;
 }
