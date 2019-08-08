@@ -3,7 +3,6 @@
 #include<iostream>
 #include<algorithm>
 #include<time.h>
-#include<mpi.h>
 #include<cuda.h>
 
 using namespace std;
