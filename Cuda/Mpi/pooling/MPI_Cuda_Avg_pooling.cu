@@ -99,34 +99,40 @@ int main(int argc, char** argv)
    cudaMalloc((void**)&gpu_input, input_h_size*input_w_size* sizeof(float));
    cudaMalloc((void**)&gpu_output_data, input_h_size*input_w_size* sizeof(float));
 
-   cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);	
+   //cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);	
 
    dim3 dimGrid(input_h_size, input_w_size);
    dim3 dimBlock(1, 1);
    
    if(rank == 0)
    {
-      MPI_Send(gpu_output_data, input_h_size * input_w_size, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
-      cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost);
+      int start_range = ((input_h_size*input_w_size)/size)*rank;
+      int end_range = ((rank+1)*((input_h_size*input_w_size)/size));
+
+      for(int i=1; i<size; i++)
+      {
+         MPI_Send(input, input_h_size * input_w_size, MPI_FLOAT, i, 1, MPI_COMM_WORLD);
+      }
+      cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);	
       Avg_pooling<<< dimGrid, dimBlock >>>(pooled_h, pooled_w, pool_h_stride, pool_w_stride, pool_h_size, input_h_size, pool_w_size, input_w_size, sum, avg, gpu_input, gpu_output_data);
       cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost);
-      print(cpu_output_data, pooled_h, pooled_w);
-
    }
-   else if (rank == 1)
+   else if(rank > 0)
   {
-    //cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);
-    MPI_Recv(gpu_output_data, input_h_size * input_w_size, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &status);
+   int start_range = ((input_h_size*input_w_size)/size)*rank;
+   int end_range = ((rank+1)*((input_h_size*input_w_size)/size));
+
+    MPI_Recv(input, input_h_size * input_w_size, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &status);
+
     cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);	
     Avg_pooling<<< dimGrid, dimBlock >>>(pooled_h, pooled_w, pool_h_stride, pool_w_stride, pool_h_size, input_h_size, pool_w_size, input_w_size, sum, avg, gpu_input, gpu_output_data);
-    cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost);
-    print(cpu_output_data, pooled_h, pooled_w);
+    cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost); 
   }
    
    //cudaDeviceSynchronize();
 
    //printf("====GPU Pooling Result value=====\n");
-
+   print(cpu_output_data, pooled_h, pooled_w);
 
    
    cudaFree(gpu_input);
