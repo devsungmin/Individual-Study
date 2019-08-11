@@ -91,7 +91,6 @@ int main(int argc, char** argv)
    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
    Init_input(input, input_h_size, input_w_size);
-   printf("=====Matrix Initial value====\n");
    print(input, input_h_size, input_w_size);
 
    float* gpu_input;
@@ -100,18 +99,35 @@ int main(int argc, char** argv)
    cudaMalloc((void**)&gpu_input, input_h_size*input_w_size* sizeof(float));
    cudaMalloc((void**)&gpu_output_data, input_h_size*input_w_size* sizeof(float));
 
-   cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);
+   cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);	
 
    dim3 dimGrid(input_h_size, input_w_size);
    dim3 dimBlock(1, 1);
    
-   Avg_pooling<<< dimGrid, dimBlock >>>(pooled_h, pooled_w, pool_h_stride, pool_w_stride, pool_h_size, input_h_size, pool_w_size, input_w_size, sum, avg, gpu_input, gpu_output_data);
+   if(rank == 0)
+   {
+      MPI_Send(gpu_output_data, input_h_size * input_w_size, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
+      cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost);
+      Avg_pooling<<< dimGrid, dimBlock >>>(pooled_h, pooled_w, pool_h_stride, pool_w_stride, pool_h_size, input_h_size, pool_w_size, input_w_size, sum, avg, gpu_input, gpu_output_data);
+      cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost);
+      print(cpu_output_data, pooled_h, pooled_w);
+
+   }
+   else if (rank == 1)
+  {
+    //cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);
+    MPI_Recv(gpu_output_data, input_h_size * input_w_size, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &status);
+    cudaMemcpy(gpu_input, input, input_h_size*input_w_size* sizeof(float), cudaMemcpyHostToDevice);	
+    Avg_pooling<<< dimGrid, dimBlock >>>(pooled_h, pooled_w, pool_h_stride, pool_w_stride, pool_h_size, input_h_size, pool_w_size, input_w_size, sum, avg, gpu_input, gpu_output_data);
+    cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost);
+    print(cpu_output_data, pooled_h, pooled_w);
+  }
    
-   cudaMemcpy(cpu_output_data, gpu_output_data, input_h_size*input_w_size* sizeof(float), cudaMemcpyDeviceToHost);
    //cudaDeviceSynchronize();
 
-   printf("====GPU Pooling Result value=====\n");
-   print(cpu_output_data, pooled_h, pooled_w);
+   //printf("====GPU Pooling Result value=====\n");
+
+
    
    cudaFree(gpu_input);
    cudaFree(gpu_output_data);
