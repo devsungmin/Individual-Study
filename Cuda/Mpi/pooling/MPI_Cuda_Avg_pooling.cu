@@ -79,12 +79,12 @@ int main(int argc, char** argv)
     int offset = 0;
     int before_offset = 0;
 
-	int input_h_size = 8;
-	int input_w_size = 8;
-	int pool_w_size = 2;
-    int pool_h_size = 2;
-    int pool_w_stride = 2;
-    int pool_h_stride = 2;
+	int input_h_size = 6;
+	int input_w_size = 6;
+	int pool_w_size = 3;
+    int pool_h_size = 3;
+    int pool_w_stride = 3;
+    int pool_h_stride = 3;
     
     int input_size = input_h_size * input_w_size;
 
@@ -133,9 +133,9 @@ int main(int argc, char** argv)
         cudaDeviceSynchronize();
 
         cudaMemcpy(result, gpu_output_data, sizeof(float) * input_size, cudaMemcpyDeviceToHost);
-        printf("=======rank = %d 계산된 값 ========\n\n",myrank);
-        print(result,pooled_h, pooled_w);
-        printf("=======end 값 ========\n\n");
+        // printf("=======rank = %d 계산된 값 ========\n\n",myrank);
+        // print(result,pooled_h, pooled_w);
+        // printf("=======end 값 ========\n\n");
 
         offset = (int)input_w_size / procs;
         for(int i = 1; i < procs; i++)
@@ -170,9 +170,9 @@ int main(int argc, char** argv)
         cudaDeviceSynchronize();
         
         cudaMemcpy(slave_result, gpu_output_data, sizeof(float) * input_size, cudaMemcpyDeviceToHost);
-        printf("=======rank = %d 계산된 값 ========\n\n",myrank);
-        print(slave_result,pooled_h, pooled_w);
-        printf("=======end 값 ========\n\n");
+        // printf("=======rank = %d 계산된 값 ========\n\n",myrank);
+        // print(slave_result,pooled_h, pooled_w);
+        // printf("=======end 값 ========\n\n");
 
         MPI_Send(slave_result, input_size, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
 
