@@ -16,10 +16,15 @@ void Init_input(int input_w_size, int input_h_size, int input_channel, float* in
         {
             for (int j = 0; j < input_w_size; j++)
             {
-                input[(c * input_h_size * input_w_size) + (i * input_w_size)] = rand() % 100;
+                input[(c * input_h_size * input_w_size) + (i * input_w_size) + j] = rand() % 100;
             }
         }
     }
+}
+
+void Filter_matrix()
+{
+    
 }
 
 /*함수 출력 부분*/
@@ -63,7 +68,7 @@ int main()
 
     float* input = (float*)malloc(sizeof(float) * input_size);
 
-    /*초기 함수 랜덤 설정*/
+    printf("===행렬 초기 값===\n");
     Init_input(input_w_size, input_h_size, input_channel, input);
     print(input, input_channel, input_h_size, input_w_size);
     //convolution(input_w_size,input_h_size,input_channel,filter_h_size, filter_w_size);

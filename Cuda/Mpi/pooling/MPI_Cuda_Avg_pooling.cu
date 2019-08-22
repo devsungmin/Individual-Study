@@ -79,12 +79,15 @@ int main(int argc, char** argv)
     int offset = 0;
     int before_offset = 0;
 
-	int input_h_size = 6;
-	int input_w_size = 6;
-	int pool_w_size = 3;
-    int pool_h_size = 3;
-    int pool_w_stride = 3;
-    int pool_h_stride = 3;
+	int input_h_size = 8;
+	int input_w_size = 8;
+	int pool_w_size = 2;
+    int pool_h_size = 2;
+    int pool_w_stride = 2;
+    int pool_h_stride = 2;
+
+    clock_t start, end;
+    float result_time = 0;
     
     int input_size = input_h_size * input_w_size;
 
@@ -92,8 +95,8 @@ int main(int argc, char** argv)
     int pooled_w = ((input_w_size - pool_w_size) / pool_w_stride) + 1;	
 
 	float* input = (float*)malloc(sizeof(float) * input_size);
-    float* result = (float*)malloc(sizeof(float) * input_size);
-    float* host_tmp = (float*)malloc(sizeof(float) * input_size);
+    float* result = (float*)malloc(sizeof(float) * pooled_h * pooled_w);
+    float* host_tmp = (float*)malloc(sizeof(float) * pooled_h * pooled_w);
     float* slave_input = (float*)malloc(sizeof(float) * input_size);
     float* slave_result = (float*)malloc(sizeof(float) * pooled_h * pooled_w);
 
@@ -113,41 +116,39 @@ int main(int argc, char** argv)
     }
 
 	cudaMalloc((void**)&gpu_input, sizeof(float) * input_size);
-    cudaMalloc((void**)&gpu_output_data, sizeof(float) * input_size);
+    cudaMalloc((void**)&gpu_output_data, sizeof(float) * pooled_h * pooled_w);
 
-    dim3 dimGrid(input_h_size, input_w_size);
+    dim3 dimGrid(pooled_h ,pooled_w);
     dim3 dimBlock(1, 1);
-    
+
+    start = clock();
+
     if(myrank == 0)
     {
-        int start = (input_size/procs)*myrank;
-        int end = ((myrank+1)*(input_size/procs));
+        int start = (pooled_h/procs)*myrank;
+        int end = ((myrank+1)*(pooled_h/procs));
 
         for(int i = 1; i < procs; i++)
         {
             MPI_Send(input, input_size, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
         }
         cudaMemcpy(gpu_input, input, sizeof(float) * input_size, cudaMemcpyHostToDevice);
-
 	    avg_pooling<<<dimGrid,dimBlock>>>(gpu_input, gpu_output_data, input_h_size, input_w_size, pool_h_size, pool_w_size, pool_h_stride, pool_w_stride, start, end);
         cudaDeviceSynchronize();
 
         cudaMemcpy(result, gpu_output_data, sizeof(float) * input_size, cudaMemcpyDeviceToHost);
-        // printf("=======rank = %d 계산된 값 ========\n\n",myrank);
-        // print(result,pooled_h, pooled_w);
-        // printf("=======end 값 ========\n\n");
 
-        offset = (int)input_w_size / procs;
+        offset = (int)pooled_h / procs;
         for(int i = 1; i < procs; i++)
         {
             MPI_Recv(host_tmp, input_size, MPI_FLOAT, i, 1, MPI_COMM_WORLD, &status);
             before_offset = offset;
-            offset += (pooled_h*pooled_w / procs);
+            offset += (pooled_h / procs);
             for(int h = before_offset; h < offset; h++)
             {
-                for(int w = 0; w < input_h_size; w++)
+                for(int w = 0; w < pooled_w; w++)
                 {
-                    result[(h * input_h_size + w)] = result[(h * input_h_size + w)] + host_tmp[(h * input_h_size + w)];
+                    result[(h * pooled_w + w)] = result[(h * pooled_w + w)] + host_tmp[(h * pooled_w + w)];
                 }
             }
         }
@@ -155,11 +156,11 @@ int main(int argc, char** argv)
 
     if(myrank > 0)
     {
-        int start = ((input_size)/procs)*myrank;
-        int end = ((myrank+1)*((input_size)/procs));
+        int start = (pooled_h/procs)*myrank;
+        int end = ((myrank+1)*(pooled_h/procs));
 
-        float* slave_input = (float*)malloc(sizeof(float) * input_size);
-        float* slave_result = (float*)malloc(sizeof(float) * input_size);
+        //float* slave_input = (float*)malloc(sizeof(float) * input_size);
+        //float* slave_result = (float*)malloc(sizeof(float) * input_size);
 
         MPI_Recv(slave_input, input_size, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &status);
 
@@ -170,9 +171,6 @@ int main(int argc, char** argv)
         cudaDeviceSynchronize();
         
         cudaMemcpy(slave_result, gpu_output_data, sizeof(float) * input_size, cudaMemcpyDeviceToHost);
-        // printf("=======rank = %d 계산된 값 ========\n\n",myrank);
-        // print(slave_result,pooled_h, pooled_w);
-        // printf("=======end 값 ========\n\n");
 
         MPI_Send(slave_result, input_size, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
 
@@ -180,13 +178,17 @@ int main(int argc, char** argv)
         free(slave_result);
     }
     cudaDeviceSynchronize();
-
+    end = clock();
+    result_time = (float)(end - start)/CLOCKS_PER_SEC;
     if(myrank == 0)
     {
         printf("----------------------\n\n");
         printf("===pooling된 행렬===\n");
 	    print(result, pooled_h, pooled_w);
     }
+
+    
+    printf("rank : %d  time : %.4f\n", myrank, result_time);
 
     free(input);
     free(result);
